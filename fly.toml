@@ -1,0 +1,22 @@
+app = "alert-tg-bot"
+primary_region = "fra"
+
+[build]
+
+[env]
+  NODE_ENV = "production"
+  CHANNEL = "@chyste_nebo"
+  SESSION_PATH = "data/session"
+  DATABASE_PATH = "data/bot.db"
+
+[mounts]
+  source = "alert_data"
+  destination = "/app/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+[[restart]]
+  policy = "always"
+  retries = 10

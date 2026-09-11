@@ -67,3 +67,11 @@ npm start
 npm test
 npm run typecheck
 ```
+
+## Деплой на Fly.io
+
+Однією командою (після `flyctl auth login`, зупиненого локального `npm start` і сесії в `data/`):
+
+```bash
+./scripts/deploy-fly.sh
+```
