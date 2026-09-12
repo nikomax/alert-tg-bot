@@ -27,18 +27,15 @@ export function formatAlert(input: {
   messageId: number;
   date: Date;
   channelUsername: string;
-  isEdit: boolean;
 }): string {
   const username = input.channelUsername.replace(/^@/, "");
-  const title = input.isEdit ? "Оновлення поста" : "Збіг у каналі";
   const keys = input.keywords.map((key) => `<b>${escapeHtml(key)}</b>`).join(", ");
   const header = [
-    `<b>${title}</b>`,
     `<b>Ключі:</b> ${keys}`,
     `<i>${escapeHtml(formatKyivTime(input.date))}</i>`,
     "",
   ].join("\n");
-  const footer = `\n\n<a href="https://t.me/${username}/${input.messageId}">Оригінал поста</a>`;
+  const footer = `\n<a href="https://t.me/${username}/${input.messageId}">Оригінал поста</a>`;
 
   const budget = TELEGRAM_MAX - header.length - footer.length;
   let body = input.text;

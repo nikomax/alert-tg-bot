@@ -13,9 +13,8 @@ test("formatAlert includes keywords, kyiv time, link, and full text", () => {
     messageId: 42,
     date: new Date("2026-09-10T14:09:00.000Z"),
     channelUsername: "chyste_nebo",
-    isEdit: false,
   });
-  assert.match(html, /Збіг у каналі/);
+  assert.doesNotMatch(html, /Збіг у каналі/);
   assert.match(html, /Буча/);
   assert.match(html, /На Бучу зайшов борт/);
   assert.match(html, /https:\/\/t\.me\/chyste_nebo\/42/);
@@ -23,16 +22,15 @@ test("formatAlert includes keywords, kyiv time, link, and full text", () => {
   assert.match(html, /Оригінал поста/);
 });
 
-test("formatAlert marks edits and clips overlong text", () => {
+test("formatAlert clips overlong text", () => {
   const html = formatAlert({
     text: "x".repeat(5000),
     keywords: ["ракета"],
     messageId: 7,
     date: new Date("2026-09-10T14:09:00.000Z"),
     channelUsername: "@chyste_nebo",
-    isEdit: true,
   });
-  assert.match(html, /Оновлення поста/);
+  assert.doesNotMatch(html, /Оновлення поста/);
   assert.match(html, /текст обрізано/);
   assert.ok(html.length <= 4096);
 });

@@ -53,7 +53,7 @@ test("processChannelPost sends once, skips duplicates, alerts on new keyword", a
     isEdit: true,
   });
   assert.equal(sent.length, 2);
-  assert.match(sent[1]?.text ?? "", /Оновлення поста/);
+  assert.match(sent[1]?.text ?? "", /ракета/);
   db.close();
 });
 

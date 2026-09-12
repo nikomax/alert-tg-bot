@@ -149,7 +149,6 @@ export async function processChannelPost(input: {
     messageId,
     date,
     channelUsername: username,
-    isEdit: isEdit || previous !== null,
   });
 
   db.upsertSent(
