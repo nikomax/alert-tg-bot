@@ -15,11 +15,12 @@ test("formatAlert includes keywords, kyiv time, link, and full text", () => {
     channelUsername: "chyste_nebo",
   });
   assert.doesNotMatch(html, /Збіг у каналі/);
+  assert.match(html, /🚨‼️ На Бучу зайшов борт/);
   assert.match(html, /Буча/);
-  assert.match(html, /На Бучу зайшов борт/);
   assert.match(html, /https:\/\/t\.me\/chyste_nebo\/42/);
   assert.match(html, /Київ/);
   assert.match(html, /Оригінал поста/);
+  assert.ok(html.indexOf("🚨‼️") < html.indexOf("Ключі"));
 });
 
 test("formatAlert clips overlong text", () => {
