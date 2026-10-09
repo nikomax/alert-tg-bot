@@ -1,6 +1,6 @@
 import { loadConfig } from "./config.ts";
 import { Database } from "./db.ts";
-import { createBot, registerBotCommands } from "./bot.ts";
+import { createBot, registerBotCommands, syncChatTitles } from "./bot.ts";
 import { startListener } from "./listener.ts";
 import { createState, logError, logInfo } from "./state.ts";
 
@@ -39,11 +39,13 @@ async function main(): Promise<void> {
 
   await registerBotCommands(bot);
   logInfo("bot command menu registered");
+  await syncChatTitles(bot, db);
+  logInfo("chat titles synced");
 
   logInfo("starting bot polling");
   await bot.start({
     drop_pending_updates: true,
-    allowed_updates: ["message"],
+    allowed_updates: ["message", "my_chat_member"],
   });
 }
 

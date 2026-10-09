@@ -108,73 +108,93 @@ export async function processChannelPost(input: {
     return;
   }
 
-  const settings = db.getSettings();
-  if (settings.paused) {
+  const chats = db.listChats();
+  if (chats.length === 0) {
+    logInfo("skip no dest group", { messageId, preview });
+    return;
+  }
+
+  const fingerprint = chats
+    .map((chat) => {
+      const keys = db.listKeywords(chat.chatId);
+      return `${chat.chatId}:${chat.paused ? 1 : 0}:${keywordFingerprint(keys)}`;
+    })
+    .join("|");
+  if (isRepeatPost(messageId, text, fingerprint)) {
+    return;
+  }
+
+  const active = chats.filter((chat) => !chat.paused);
+  if (active.length === 0) {
     logInfo("skip paused", { messageId, preview });
     return;
   }
 
-  const keywords = db.listKeywords();
-  if (isRepeatPost(messageId, text, keywordFingerprint(keywords))) {
-    return;
+  let considered = 0;
+  let matchedAny = false;
+  for (const chat of active) {
+    const keywords = db.listKeywords(chat.chatId);
+    if (keywords.length === 0) {
+      continue;
+    }
+    considered += 1;
+    const matched = matchKeywords(
+      text,
+      keywords.map((item) => [item.normalized, item.displayText]),
+    );
+    if (matched.length === 0) {
+      continue;
+    }
+    matchedAny = true;
+
+    const previous = db.getSentKeywords(chat.chatId, messageId);
+    if (!shouldAlert(matched, previous)) {
+      logInfo("skip duplicate", { messageId, matched, preview, dest: chat.chatId });
+      continue;
+    }
+
+    const html = formatAlert({
+      text,
+      keywords: matched,
+      messageId,
+      date,
+      channelUsername: username,
+    });
+
+    db.upsertSent(
+      chat.chatId,
+      channelId,
+      messageId,
+      matched.map((item) => normalizeKeyword(item)),
+    );
+
+    try {
+      await bot.api.sendMessage(chat.chatId, html, {
+        parse_mode: "HTML",
+        link_preview_options: { is_disabled: true },
+      });
+      logInfo("alert sent", { messageId, matched, preview, dest: chat.chatId });
+    } catch (error) {
+      db.deleteSent(chat.chatId, messageId);
+      logError("failed to send alert", error);
+      const now = Date.now();
+      if (now - state.lastDeliveryErrorAt >= DELIVERY_ERROR_COOLDOWN_MS) {
+        state.lastDeliveryErrorAt = now;
+        await notifyOwner(
+          bot,
+          config.ownerId,
+          `Не можу надіслати алерт у «${chat.title}». Перевірте, що бот є учасником і має право писати.`,
+        );
+      }
+    }
   }
-  if (keywords.length === 0) {
+
+  if (considered === 0) {
     logInfo("skip no keywords", { messageId, preview });
     return;
   }
-
-  const matched = matchKeywords(
-    text,
-    keywords.map((item) => [item.normalized, item.displayText]),
-  );
-  if (matched.length === 0) {
+  if (!matchedAny) {
     logInfo("skip no match", { messageId, preview });
-    return;
-  }
-
-  const previous = db.getSentKeywords(channelId, messageId);
-  if (!shouldAlert(matched, previous)) {
-    logInfo("skip duplicate", { messageId, matched, preview });
-    return;
-  }
-
-  if (settings.destChatId == null) {
-    logInfo("matched but no dest group", { messageId, matched, preview });
-    return;
-  }
-
-  const html = formatAlert({
-    text,
-    keywords: matched,
-    messageId,
-    date,
-    channelUsername: username,
-  });
-
-  db.upsertSent(
-    channelId,
-    messageId,
-    matched.map((item) => normalizeKeyword(item)),
-  );
-
-  try {
-    await bot.api.sendMessage(settings.destChatId, html, {
-      parse_mode: "HTML",
-      link_preview_options: { is_disabled: true },
-    });
-    logInfo("alert sent", { messageId, matched, preview, dest: settings.destChatId });
-  } catch (error) {
-    db.deleteSent(messageId);
-    logError("failed to send alert", error);
-    const now = Date.now();
-    if (now - state.lastDeliveryErrorAt >= DELIVERY_ERROR_COOLDOWN_MS) {
-      state.lastDeliveryErrorAt = now;
-      await notifyOwner(
-        bot,
-        config.ownerId,
-        "Не можу надіслати алерт у групу. Перевірте, що бот є учасником і має право писати. Потім знову /setgroup.",
-      );
-    }
   }
 }
 
