@@ -20,8 +20,8 @@ function config(): Config {
 
 test("processChannelPost sends once, skips duplicates, alerts on new keyword", async () => {
   const db = new Database(":memory:");
-  db.addKeyword("Буча");
-  db.setDestChatId(-1001);
+  db.upsertChat(-1001, "сади");
+  db.addKeyword(-1001, "Буча");
   const sent: Array<{ chatId: number; text: string }> = [];
   const bot = new Bot("0:test");
   bot.api.sendMessage = (async (chatId: number, text: string) => {
@@ -44,9 +44,10 @@ test("processChannelPost sends once, skips duplicates, alerts on new keyword", a
   await processChannelPost(base);
   await processChannelPost({ ...base, isEdit: true });
   assert.equal(sent.length, 1);
+  assert.equal(sent[0]?.chatId, -1001);
   assert.match(sent[0]?.text ?? "", /Буча/);
 
-  db.addKeyword("ракета");
+  db.addKeyword(-1001, "ракета");
   await processChannelPost({
     ...base,
     text: "На Бучу зайшов борт, ракета",
@@ -57,10 +58,56 @@ test("processChannelPost sends once, skips duplicates, alerts on new keyword", a
   db.close();
 });
 
+test("processChannelPost fans out to chats with their own keywords", async () => {
+  const db = new Database(":memory:");
+  db.upsertChat(-1001, "сади");
+  db.upsertChat(-1002, "лівий");
+  db.addKeyword(-1001, "Буча");
+  db.addKeyword(-1002, "Бровари");
+  const sent: Array<{ chatId: number; text: string }> = [];
+  const bot = new Bot("0:test");
+  bot.api.sendMessage = (async (chatId: number, text: string) => {
+    sent.push({ chatId, text });
+    return { message_id: sent.length };
+  }) as unknown as typeof bot.api.sendMessage;
+  const base = {
+    config: config(),
+    db,
+    bot,
+    state: createState(),
+    text: "На Бучу зайшов борт",
+    date: new Date(),
+    channelId: -100555,
+    messageId: 11,
+    isEdit: false,
+  };
+
+  await processChannelPost(base);
+  assert.deepEqual(
+    sent.map((item) => item.chatId),
+    [-1001],
+  );
+
+  await processChannelPost({ ...base, text: "Бровари, борт", messageId: 12 });
+  assert.deepEqual(
+    sent.map((item) => item.chatId),
+    [-1001, -1002],
+  );
+
+  db.addKeyword(-1002, "Буча");
+  await processChannelPost({ ...base, messageId: 13 });
+  assert.deepEqual(
+    sent.slice(0, 2).map((item) => item.chatId),
+    [-1001, -1002],
+  );
+  assert.deepEqual(new Set(sent.slice(2).map((item) => item.chatId)), new Set([-1001, -1002]));
+  db.close();
+});
+
 test("processChannelPost sends once when new and edit race", async () => {
   const db = new Database(":memory:");
-  db.addKeyword("Чабани");
-  db.setDestChatId(-1001);
+  db.upsertChat(-1001, "сади");
+  db.addKeyword(-1001, "Чабани");
   const sent: unknown[] = [];
   let release!: () => void;
   const gate = new Promise<void>((resolve) => {
@@ -95,8 +142,8 @@ test("processChannelPost sends once when new and edit race", async () => {
 
 test("identical edit of a non-matching post is ignored", async () => {
   const db = new Database(":memory:");
-  db.addKeyword("Буча");
-  db.setDestChatId(-1001);
+  db.upsertChat(-1001, "сади");
+  db.addKeyword(-1001, "Буча");
   const sent: unknown[] = [];
   const bot = new Bot("0:test");
   bot.api.sendMessage = (async () => {
@@ -141,12 +188,12 @@ test("processChannelPost stays silent without keywords, matches, dest, or when p
   };
 
   await processChannelPost(base);
-  db.addKeyword("Буча");
+  db.upsertChat(-1001, "сади");
   await processChannelPost(base);
-  db.setDestChatId(-1001);
-  db.setPaused(true);
+  db.addKeyword(-1001, "Буча");
+  db.setPaused(-1001, true);
   await processChannelPost(base);
-  db.setPaused(false);
+  db.setPaused(-1001, false);
   await processChannelPost({ ...base, text: "Житомир тихо" });
   assert.equal(sent.length, 0);
   db.close();
