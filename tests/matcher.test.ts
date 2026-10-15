@@ -14,9 +14,15 @@ test("normalizeKeyword case-folds Ukrainian І/і and collapses spaces", () => {
 });
 
 test("validateKeyword enforces length and rejects newlines", () => {
-  assert.equal(validateKeyword("Б"), "Ключ має бути від 2 до 64 символів, без розриву рядка.");
+  assert.equal(
+    validateKeyword("Б"),
+    "Ключ має бути від 2 до 64 символів, без розриву рядка.",
+  );
   assert.equal(validateKeyword("Буча"), null);
-  assert.equal(validateKeyword("a\nb"), "Ключ має бути від 2 до 64 символів, без розриву рядка.");
+  assert.equal(
+    validateKeyword("a\nb"),
+    "Ключ має бути від 2 до 64 символів, без розриву рядка.",
+  );
 });
 
 test("matchKeywords is case-insensitive and catches Ukrainian endings", () => {
@@ -30,6 +36,22 @@ test("matchKeywords is case-insensitive and catches Ukrainian endings", () => {
   assert.deepEqual(matchKeywords("Бучач під ударом", keys), ["Буча"]);
   assert.deepEqual(matchKeywords("ракета і Буча", keys), ["Буча", "ракета"]);
   assert.deepEqual(matchKeywords("Житомир тихо", keys), []);
+});
+
+test("Дарниця does not match Дарницький, but still matches Darnitsia cases", () => {
+  const keys: Array<[string, string]> = [[normalizeKeyword("Дарниця"), "Дарниця"]];
+  assert.deepEqual(matchKeywords("На Дарницький міст", keys), []);
+  assert.deepEqual(matchKeywords("дарницька траса", keys), []);
+  assert.deepEqual(matchKeywords("у Дарниці відбій", keys), ["Дарниця"]);
+  assert.deepEqual(matchKeywords("На Дарницю", keys), ["Дарниця"]);
+  assert.deepEqual(matchKeywords("Дарниця і Дарницький міст", keys), ["Дарниця"]);
+});
+
+test("Лісовий does not match Лісовичі", () => {
+  const keys: Array<[string, string]> = [[normalizeKeyword("Лісовий"), "Лісовий"]];
+  assert.deepEqual(matchKeywords("Лісовичі, борт", keys), []);
+  assert.deepEqual(matchKeywords("на Лісовий", keys), ["Лісовий"]);
+  assert.deepEqual(matchKeywords("Лісовий і Лісовичі", keys), ["Лісовий"]);
 });
 
 test("empty keyword list never matches", () => {

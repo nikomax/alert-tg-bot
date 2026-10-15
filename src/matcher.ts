@@ -35,6 +35,45 @@ export function matchVariants(normalized: string): string[] {
   return variants;
 }
 
+/** Stem hits that are a longer unrelated word, not a case of the keyword. */
+const STEM_BLOCKLIST: Record<string, string[]> = {
+  дарниця: ["дарницьк"],
+  лісовий: ["лісович"],
+};
+
+function stemHitIsBlocked(folded: string, stem: string, blocked: string[]): boolean {
+  if (blocked.length === 0) {
+    return false;
+  }
+  let from = 0;
+  let sawStem = false;
+  while (from < folded.length) {
+    const index = folded.indexOf(stem, from);
+    if (index < 0) {
+      break;
+    }
+    sawStem = true;
+    if (!blocked.some((prefix) => folded.startsWith(prefix, index))) {
+      return false;
+    }
+    from = index + 1;
+  }
+  return sawStem;
+}
+
+function textMatchesKeyword(folded: string, normalized: string): boolean {
+  const blocked = STEM_BLOCKLIST[normalized] ?? [];
+  for (const variant of matchVariants(normalized)) {
+    if (!folded.includes(variant)) {
+      continue;
+    }
+    if (variant === normalized || !stemHitIsBlocked(folded, variant, blocked)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** keywords: [normalized, display] */
 export function matchKeywords(
   text: string,
@@ -47,7 +86,7 @@ export function matchKeywords(
     if (!normalized || seen.has(normalized)) {
       continue;
     }
-    if (matchVariants(normalized).some((variant) => folded.includes(variant))) {
+    if (textMatchesKeyword(folded, normalized)) {
       hits.push(display);
       seen.add(normalized);
     }
